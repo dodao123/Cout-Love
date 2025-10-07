@@ -3,7 +3,9 @@ export const runtime = 'nodejs';
 export const maxDuration = 60; // allow longer processing for large uploads
 import { getDatabase } from '@/lib/mongodb';
 import { Album } from '@/app/api/config/initMongoDB';
-import { uploadFile } from '@/lib/upload';
+import { uploadFile, uploadStream } from '@/lib/upload';
+import Busboy from 'busboy';
+import { Readable } from 'node:stream';
 
 // GET /api/albums - Get all public albums
 export async function GET(request: NextRequest) {
@@ -67,9 +69,151 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const db = await getDatabase();
+    const contentType = request.headers.get('content-type') || '';
+
+    // Streaming path for multipart uploads to avoid buffering entire payload
+    if (contentType.includes('multipart/form-data')) {
+      const webStream = request.body as unknown as ReadableStream<Uint8Array> | null;
+      if (!webStream) {
+        return NextResponse.json({ error: 'Empty request body' }, { status: 400 });
+      }
+      const nodeReadable = Readable.fromWeb(webStream as unknown as any) as NodeJS.ReadableStream;
+      const bb = Busboy({ headers: { 'content-type': contentType } });
+
+      let name = '';
+      let subtitle = '';
+      let dayStart = '';
+      let template = 'template1';
+      let quote = '';
+      let letterNotesRaw = '[]';
+
+      const photoNotes: string[] = [];
+      const photoUrls: string[] = [];
+      const messages: { [key: string]: string } = {};
+      let maleAvatarUrl = '/uploads/placeholder.jpg';
+      let femaleAvatarUrl = '/uploads/placeholder.jpg';
+      let musicUrl = '';
+      let photoIndex = 0;
+      const fileSaves: Promise<unknown>[] = [];
+
+      bb.on('field', (fieldname: string, val: string) => {
+        if (fieldname === 'name') name = val;
+        else if (fieldname === 'subtitle') subtitle = val;
+        else if (fieldname === 'dayStart') dayStart = val;
+        else if (fieldname === 'template') template = val;
+        else if (fieldname === 'quote') quote = val;
+        else if (fieldname === 'letterNotes') letterNotesRaw = val || '[]';
+        else if (fieldname === 'photoNotes') photoNotes.push(val);
+      });
+
+      bb.on('file', (fieldname: string, file: NodeJS.ReadableStream, info: { filename: string }) => {
+        const { filename } = info || { filename: 'file.bin' };
+        if (fieldname === 'photos') {
+          const currentIndex = photoIndex++;
+          const p = uploadStream(file, filename, 'albums')
+            .then(res => {
+              photoUrls[currentIndex] = res.url;
+              messages[currentIndex.toString()] = photoNotes[currentIndex] || '';
+            })
+            .catch(() => {
+              photoUrls[currentIndex] = '/uploads/placeholder.jpg';
+              messages[currentIndex.toString()] = photoNotes[currentIndex] || '';
+            });
+          fileSaves.push(p);
+        } else if (fieldname === 'malePhoto') {
+          const p = uploadStream(file, filename, 'avatars')
+            .then(res => { maleAvatarUrl = res.url; })
+            .catch(() => {});
+          fileSaves.push(p);
+        } else if (fieldname === 'femalePhoto') {
+          const p = uploadStream(file, filename, 'avatars')
+            .then(res => { femaleAvatarUrl = res.url; })
+            .catch(() => {});
+          fileSaves.push(p);
+        } else if (fieldname === 'music') {
+          const p = uploadStream(file, filename, 'audio')
+            .then(res => { musicUrl = res.url; })
+            .catch(() => {});
+          fileSaves.push(p);
+        } else {
+          // Drain unrecognized files
+          file.resume();
+        }
+      });
+
+      const done = new Promise<void>((resolve, reject) => {
+        bb.on('error', reject);
+        bb.on('finish', () => resolve());
+      });
+
+      nodeReadable.pipe(bb);
+      await done;
+      await Promise.all(fileSaves);
+
+      // Validate required fields
+      if (!name || !dayStart || photoUrls.length === 0 || maleAvatarUrl === '/uploads/placeholder.jpg' || femaleAvatarUrl === '/uploads/placeholder.jpg') {
+        return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+      }
+
+      // Generate slug from name
+      const slug = name
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .trim();
+
+      const existingAlbum = await db.collection('albums').findOne({ slug });
+      if (existingAlbum) {
+        return NextResponse.json({ error: 'Album with this name already exists' }, { status: 409 });
+      }
+
+      const parsedLetterNotes = (() => {
+        try {
+          const ln = JSON.parse(letterNotesRaw || '[]');
+          return Array.isArray(ln)
+            ? ln.map((note: { title: string; content: string[] | string; date: string }) => ({
+                ...note,
+                content: Array.isArray(note.content) ? note.content : [note.content]
+              }))
+            : [];
+        } catch {
+          return [];
+        }
+      })();
+
+      const now = new Date();
+      const album: Album = {
+        slug,
+        name,
+        subtitle: subtitle || '',
+        dayStart,
+        template: (template as 'template1' | 'template2' | 'template3' | 'template4') || 'template1',
+        coverImage: photoUrls[0] || '',
+        maleAvatar: maleAvatarUrl,
+        femaleAvatar: femaleAvatarUrl,
+        photos: photoUrls,
+        messages,
+        quote: quote || '',
+        letterNotes: parsedLetterNotes,
+        music: musicUrl || undefined,
+        createdAt: now,
+        updatedAt: now,
+        isPublic: true,
+        views: 0,
+        likes: 0,
+        createdBy: 'admin',
+        tags: [],
+        settings: { autoPlay: true, showCounter: true, allowComments: true }
+      };
+
+      const { _id, ...albumWithoutId } = album;
+      const result = await db.collection('albums').insertOne(albumWithoutId);
+      return NextResponse.json({ success: true, album: { ...album, _id: result.insertedId } });
+    }
+
+    // Fallback: smaller uploads via standard API
     const formData = await request.formData();
-    
-    // Extract form data
     const name = formData.get('name') as string;
     const subtitle = formData.get('subtitle') as string;
     const dayStart = formData.get('dayStart') as string;
@@ -80,89 +224,53 @@ export async function POST(request: NextRequest) {
     const photoNotes = formData.getAll('photoNotes') as string[];
     const letterNotes = JSON.parse(formData.get('letterNotes') as string || '[]');
     const music = formData.get('music') as File | null;
-    
-    // Process letter notes to ensure content is array of strings
     const processedLetterNotes = letterNotes.map((note: { title: string; content: string[] | string; date: string }) => ({
       ...note,
       content: Array.isArray(note.content) ? note.content : [note.content]
     }));
     const quote = formData.get('quote') as string;
-    
-    // Validate required fields
+
     if (!name || !dayStart || !malePhoto || !femalePhoto || photos.length === 0) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
-    
-    // Generate slug from name
+
     const slug = name
       .toLowerCase()
       .replace(/[^a-z0-9\s-]/g, '')
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-')
       .trim();
-    
-    // Check if slug already exists
+
     const existingAlbum = await db.collection('albums').findOne({ slug });
     if (existingAlbum) {
-      return NextResponse.json(
-        { error: 'Album with this name already exists' },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: 'Album with this name already exists' }, { status: 409 });
     }
-    
-    // Process photos and create messages object
+
     const messages: { [key: string]: string } = {};
     const photoUrls: string[] = [];
-    
-    // Upload photos - FIXED: Use direct function call instead of fetch
     for (let i = 0; i < photos.length; i++) {
       const photo = photos[i];
       const note = photoNotes[i] || '';
-      
       try {
         const uploadResult = await uploadFile(photo, 'albums');
         photoUrls.push(uploadResult.url);
         messages[i.toString()] = note;
-      } catch (error) {
-        console.error('Failed to upload photo:', i, error);
-        // Fallback to placeholder
+      } catch {
         photoUrls.push('/uploads/placeholder.jpg');
         messages[i.toString()] = note;
       }
     }
-    
-    // Upload male and female avatars - FIXED: Use direct function calls
+
     let maleAvatarUrl = '/uploads/placeholder.jpg';
     let femaleAvatarUrl = '/uploads/placeholder.jpg';
-    
-    try {
-      const maleResult = await uploadFile(malePhoto, 'avatars');
-      maleAvatarUrl = maleResult.url;
-    } catch (error) {
-      console.error('Failed to upload male avatar:', error);
-    }
-    
-    try {
-      const femaleResult = await uploadFile(femalePhoto, 'avatars');
-      femaleAvatarUrl = femaleResult.url;
-    } catch (error) {
-      console.error('Failed to upload female avatar:', error);
-    }
-    
-    // Upload music file if provided - FIXED: Use direct function call
+    try { maleAvatarUrl = (await uploadFile(malePhoto, 'avatars')).url; } catch {}
+    try { femaleAvatarUrl = (await uploadFile(femalePhoto, 'avatars')).url; } catch {}
+
     let musicUrl = '';
     if (music && music.size > 0) {
-      try {
-        const musicResult = await uploadFile(music, 'audio');
-        musicUrl = musicResult.url;
-      } catch (error) {
-        console.error('Failed to upload music file:', error);
-      }
+      try { musicUrl = (await uploadFile(music, 'audio')).url; } catch {}
     }
-    
+
     const now = new Date();
     const album: Album = {
       slug,
@@ -183,37 +291,16 @@ export async function POST(request: NextRequest) {
       isPublic: true,
       views: 0,
       likes: 0,
-      createdBy: 'admin', // In production, get from auth
+      createdBy: 'admin',
       tags: [],
-      settings: {
-        autoPlay: true,
-        showCounter: true,
-        allowComments: true
-      }
+      settings: { autoPlay: true, showCounter: true, allowComments: true }
     };
-    
+
     const { _id, ...albumWithoutId } = album;
     const result = await db.collection('albums').insertOne(albumWithoutId);
-    
-    // In production, you would upload files to cloud storage here
-    // For now, we'll just return success
-    
-    return NextResponse.json({
-      success: true,
-      album: { ...album, _id: result.insertedId }
-    });
+    return NextResponse.json({ success: true, album: { ...album, _id: result.insertedId } });
   } catch (error) {
     console.error('Error creating album:', error);
-    console.error('Error details:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
-    });
-    return NextResponse.json(
-      { 
-        error: 'Failed to create album',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create album' }, { status: 500 });
   }
 }
