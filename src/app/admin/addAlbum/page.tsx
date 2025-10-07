@@ -185,7 +185,7 @@ export default function AddAlbumPage() {
         formData.append('musicUrl', uploadedMusicUrl);
       } else if (musicFile) {
         // Chunked upload to /api/upload to avoid proxy 413
-        const chunkSize = 1.5 * 1024 * 1024; // 1.5MB per chunk
+        const chunkSize = 200 * 1024; // 200KB per chunk for strict proxies
         const totalChunks = Math.ceil(musicFile.size / chunkSize);
         const uploadId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
