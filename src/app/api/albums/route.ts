@@ -6,6 +6,7 @@ import { Album } from '@/app/api/config/initMongoDB';
 import { uploadFile, uploadStream } from '@/lib/upload';
 import Busboy from 'busboy';
 import { Readable } from 'node:stream';
+import { ReadableStream as NodeWebReadableStream } from 'node:stream/web';
 
 // GET /api/albums - Get all public albums
 export async function GET(request: NextRequest) {
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
       if (!webStream) {
         return NextResponse.json({ error: 'Empty request body' }, { status: 400 });
       }
-      const nodeReadable = Readable.fromWeb(webStream as unknown as any) as NodeJS.ReadableStream;
+      const nodeReadable = Readable.fromWeb(webStream as unknown as NodeWebReadableStream) as NodeJS.ReadableStream;
       const bb = Busboy({ headers: { 'content-type': contentType } });
 
       let name = '';
@@ -207,7 +208,7 @@ export async function POST(request: NextRequest) {
         settings: { autoPlay: true, showCounter: true, allowComments: true }
       };
 
-      const { _id, ...albumWithoutId } = album;
+      const albumWithoutId = (({ _id, ...rest }) => rest)(album);
       const result = await db.collection('albums').insertOne(albumWithoutId);
       return NextResponse.json({ success: true, album: { ...album, _id: result.insertedId } });
     }
@@ -296,7 +297,7 @@ export async function POST(request: NextRequest) {
       settings: { autoPlay: true, showCounter: true, allowComments: true }
     };
 
-    const { _id, ...albumWithoutId } = album;
+    const albumWithoutId = (({ _id, ...rest }) => rest)(album);
     const result = await db.collection('albums').insertOne(albumWithoutId);
     return NextResponse.json({ success: true, album: { ...album, _id: result.insertedId } });
   } catch (error) {
