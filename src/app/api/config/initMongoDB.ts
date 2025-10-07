@@ -1,15 +1,19 @@
 import { MongoClient, Db } from 'mongodb';
 
-// MongoDB connection (prefer new env names, fallback to old ones)
-const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
-const MONGO_DB = process.env.MONGO_DB || process.env.MONGODB_DB;
+// Lazy MongoDB connection - only connect when actually needed
+function getMongoConfig() {
+  const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
+  const MONGO_DB = process.env.MONGO_DB || process.env.MONGODB_DB;
 
-if (!MONGO_URI) {
-  throw new Error('Missing MongoDB connection string. Set MONGO_URI (or MONGODB_URI).');
-}
+  if (!MONGO_URI) {
+    throw new Error('Missing MongoDB connection string. Set MONGO_URI (or MONGODB_URI).');
+  }
 
-if (!MONGO_DB) {
-  throw new Error('Missing MongoDB database name. Set MONGO_DB (or MONGODB_DB).');
+  if (!MONGO_DB) {
+    throw new Error('Missing MongoDB database name. Set MONGO_DB (or MONGODB_DB).');
+  }
+
+  return { MONGO_URI, MONGO_DB };
 }
 
 let cachedClient: MongoClient | null = null;
@@ -20,9 +24,10 @@ export async function connectToDatabase() {
     return { client: cachedClient, db: cachedDb };
   }
 
-  const client = new MongoClient(MONGO_URI as string);
+  const { MONGO_URI, MONGO_DB } = getMongoConfig();
+  const client = new MongoClient(MONGO_URI);
   await client.connect();
-  const db = client.db(MONGO_DB as string);
+  const db = client.db(MONGO_DB);
 
   cachedClient = client;
   cachedDb = db;

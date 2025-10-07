@@ -59,5 +59,8 @@ const connectMongoDB = async () => {
 module.exports = {
     mongoose,
     connectMongoDB, // Export connection function
-    ...(await import('./initMongoDB'))
+    // Lazy import to avoid build-time connection issues
+    get initMongoDB() {
+        return require('./initMongoDB');
+    }
 };
