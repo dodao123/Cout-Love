@@ -84,6 +84,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       <audio 
         ref={audioRef} 
         preload="auto"
+        playsInline
         style={{ display: 'none' }}
       />
     </AudioContext.Provider>

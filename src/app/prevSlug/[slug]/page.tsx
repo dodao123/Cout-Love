@@ -124,6 +124,39 @@ export default function PrevSlugPage() {
 
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
 
+  // Ensure music can start on first user interaction in browsers blocking autoplay
+  useEffect(() => {
+    if (!album?.music) return;
+    if (isPlaying) return;
+
+    let attempted = false;
+    const handler = (e: Event) => {
+      if (attempted) return;
+      // Ignore interactions on the audio toggle button
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest('[data-audio-toggle="true"]')) {
+        return;
+      }
+      attempted = true;
+      try {
+        playMusic(album.music as string);
+      } catch {}
+      window.removeEventListener('click', handler);
+      window.removeEventListener('touchstart', handler);
+      window.removeEventListener('keydown', handler);
+    };
+
+    window.addEventListener('click', handler, { once: true });
+    window.addEventListener('touchstart', handler, { once: true });
+    window.addEventListener('keydown', handler, { once: true });
+
+    return () => {
+      window.removeEventListener('click', handler);
+      window.removeEventListener('touchstart', handler);
+      window.removeEventListener('keydown', handler);
+    };
+  }, [album?.music, isPlaying, playMusic]);
+
   if (isLoading) {
     return (
       <div
@@ -191,6 +224,7 @@ export default function PrevSlugPage() {
       {album?.music && (
         <button
           onClick={toggleMusic}
+          data-audio-toggle="true"
           className={`absolute top-4 left-4 z-50 backdrop-blur-sm p-2 rounded-full hover:scale-110 transition-all shadow-lg ${
             isDarkMode 
               ? 'bg-gray-800/80 text-gray-200 hover:bg-gray-800' 
