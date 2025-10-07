@@ -1,4 +1,7 @@
 "use client";
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -189,6 +192,7 @@ export default function AddAlbumPage() {
         const totalChunks = Math.ceil(musicFile.size / chunkSize);
         const uploadId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
+        const versionStamp = Date.now().toString();
         for (let i = 0; i < totalChunks; i++) {
           const start = i * chunkSize;
           const end = Math.min(start + chunkSize, musicFile.size);
@@ -200,7 +204,7 @@ export default function AddAlbumPage() {
           chunkForm.append('fileName', musicFile.name);
           chunkForm.append('chunkIndex', String(i));
           chunkForm.append('totalChunks', String(totalChunks));
-          const res = await fetch('/api/upload', { method: 'POST', body: chunkForm });
+          const res = await fetch(`/api/upload?v=${versionStamp}`, { method: 'POST', body: chunkForm, cache: 'no-store' });
           if (!res.ok) {
             const err = await res.json().catch(() => ({}));
             throw new Error(err.error || `Upload chunk ${i} failed`);

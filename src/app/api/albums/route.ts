@@ -199,10 +199,17 @@ export async function POST(request: NextRequest) {
     // In production, you would upload files to cloud storage here
     // For now, we'll just return success
     
-    return NextResponse.json({
-      success: true,
-      album: { ...album, _id: result.insertedId }
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        album: { ...album, _id: result.insertedId }
+      },
+      { headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        Pragma: 'no-cache',
+        Expires: '0'
+      }}
+    );
   } catch (error) {
     console.error('Error creating album:', error);
     console.error('Error details:', {
@@ -214,7 +221,11 @@ export async function POST(request: NextRequest) {
         error: 'Failed to create album',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
-      { status: 500 }
+      { status: 500, headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        Pragma: 'no-cache',
+        Expires: '0'
+      }}
     );
   }
 }

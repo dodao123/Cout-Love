@@ -79,7 +79,14 @@ export async function POST(request: NextRequest) {
       }
 
       // Not last chunk yet
-      return NextResponse.json({ success: true, receivedChunk: chunkIndex });
+      return NextResponse.json(
+        { success: true, receivedChunk: chunkIndex },
+        { headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          Pragma: 'no-cache',
+          Expires: '0'
+        }}
+      );
     }
 
     // Single-shot upload path (small files)
@@ -109,17 +116,28 @@ export async function POST(request: NextRequest) {
     // Return file URL
     const fileUrl = `/uploads/${type}/${filename}`;
     
-    return NextResponse.json({
-      success: true,
-      url: fileUrl,
-      filename: filename
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        url: fileUrl,
+        filename: filename
+      },
+      { headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        Pragma: 'no-cache',
+        Expires: '0'
+      }}
+    );
     
   } catch (error) {
     console.error('Error uploading file:', error);
     return NextResponse.json(
       { error: 'Failed to upload file' },
-      { status: 500 }
+      { status: 500, headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        Pragma: 'no-cache',
+        Expires: '0'
+      }}
     );
   }
 }
