@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+export const runtime = 'nodejs';
+export const maxDuration = 60; // allow longer processing for large uploads
 import { getDatabase } from '@/lib/mongodb';
 import { Album } from '@/app/api/config/initMongoDB';
 import { uploadFile } from '@/lib/upload';
