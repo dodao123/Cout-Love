@@ -32,6 +32,7 @@ export default function AddAlbumPage() {
   // Music states
   const [musicFile, setMusicFile] = useState<File | null>(null);
   const [musicPreview, setMusicPreview] = useState<string>("");
+  const [uploadedMusicUrl, setUploadedMusicUrl] = useState<string>("");
   
   // Letter notes states
   const [letterNotes, setLetterNotes] = useState<LetterNote[]>([]);
@@ -104,6 +105,7 @@ export default function AddAlbumPage() {
       const file = acceptedFiles[0];
       setMusicFile(file);
       setMusicPreview(URL.createObjectURL(file));
+      setUploadedMusicUrl("");
     }
   };
 
@@ -158,6 +160,7 @@ export default function AddAlbumPage() {
     }
     setMusicFile(null);
     setMusicPreview("");
+    setUploadedMusicUrl("");
   };
 
   const createAlbum = async () => {
@@ -178,8 +181,23 @@ export default function AddAlbumPage() {
       formData.append('femalePhoto', femalePhoto);
       
       // Add music file if exists
-      if (musicFile) {
-        formData.append('music', musicFile);
+      if (uploadedMusicUrl) {
+        formData.append('musicUrl', uploadedMusicUrl);
+      } else if (musicFile) {
+        // Fallback: upload first to /api/upload to avoid 413 on albums endpoint
+        const up = new FormData();
+        up.append('file', musicFile);
+        up.append('type', 'audio');
+        const upRes = await fetch('/api/upload', { method: 'POST', body: up });
+        if (!upRes.ok) {
+          const err = await upRes.json().catch(() => ({}));
+          throw new Error(err.error || 'Upload audio failed');
+        }
+        const upJson = await upRes.json();
+        if (upJson?.url) {
+          formData.append('musicUrl', upJson.url);
+          setUploadedMusicUrl(upJson.url);
+        }
       }
       
       // Add photos with notes
@@ -335,6 +353,8 @@ export default function AddAlbumPage() {
                     ? 'bg-slate-700 border-gray-600 text-white focus:border-blue-500' 
                     : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
                 }`}
+                aria-label="Ngày bắt đầu yêu"
+                title="Ngày bắt đầu yêu"
               />
             </div>
 
