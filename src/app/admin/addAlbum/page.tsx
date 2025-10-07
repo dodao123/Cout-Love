@@ -184,19 +184,35 @@ export default function AddAlbumPage() {
       if (uploadedMusicUrl) {
         formData.append('musicUrl', uploadedMusicUrl);
       } else if (musicFile) {
-        // Fallback: upload first to /api/upload to avoid 413 on albums endpoint
-        const up = new FormData();
-        up.append('file', musicFile);
-        up.append('type', 'audio');
-        const upRes = await fetch('/api/upload', { method: 'POST', body: up });
-        if (!upRes.ok) {
-          const err = await upRes.json().catch(() => ({}));
-          throw new Error(err.error || 'Upload audio failed');
-        }
-        const upJson = await upRes.json();
-        if (upJson?.url) {
-          formData.append('musicUrl', upJson.url);
-          setUploadedMusicUrl(upJson.url);
+        // Chunked upload to /api/upload to avoid proxy 413
+        const chunkSize = 1.5 * 1024 * 1024; // 1.5MB per chunk
+        const totalChunks = Math.ceil(musicFile.size / chunkSize);
+        const uploadId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+        for (let i = 0; i < totalChunks; i++) {
+          const start = i * chunkSize;
+          const end = Math.min(start + chunkSize, musicFile.size);
+          const blob = musicFile.slice(start, end);
+          const chunkForm = new FormData();
+          chunkForm.append('file', new File([blob], musicFile.name, { type: musicFile.type }));
+          chunkForm.append('type', 'audio');
+          chunkForm.append('uploadId', uploadId);
+          chunkForm.append('fileName', musicFile.name);
+          chunkForm.append('chunkIndex', String(i));
+          chunkForm.append('totalChunks', String(totalChunks));
+          const res = await fetch('/api/upload', { method: 'POST', body: chunkForm });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || `Upload chunk ${i} failed`);
+          }
+          // On last chunk capture URL
+          if (i === totalChunks - 1) {
+            const data = await res.json();
+            if (data?.url) {
+              formData.append('musicUrl', data.url);
+              setUploadedMusicUrl(data.url);
+            }
+          }
         }
       }
       
