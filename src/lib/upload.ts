@@ -17,15 +17,15 @@ export async function uploadFile(file: File, type: string): Promise<UploadResult
     const extension = file.name.split('.').pop();
     const filename = `${type}-${timestamp}.${extension}`;
     
-    // Create directory if it doesn't exist
-    const uploadDir = join(process.cwd(), 'public', 'uploads', type);
+    // Create directory if it doesn't exist (store outside public)
+    const uploadDir = join(process.cwd(), 'storage', 'uploads', type);
     await mkdir(uploadDir, { recursive: true });
     
     // Write file
     const filepath = join(uploadDir, filename);
     await writeFile(filepath, buffer);
     
-    // Return file URL
+    // Return file URL (served via dynamic route)
     const fileUrl = `/uploads/${type}/${filename}`;
     
     return {

@@ -112,7 +112,7 @@ export async function DELETE(request: NextRequest) {
       // Accept paths like "/uploads/albums/file.webp" or "/uploads/audio/file.mp3"
       if (!urlPath.startsWith('/uploads/')) return null;
       const relative = urlPath.replace(/^\//, '');
-      return join(process.cwd(), 'public', relative.substring('uploads/'.length) ? join('uploads', relative.substring('uploads/'.length)) : 'uploads');
+      return join(process.cwd(), 'storage', relative);
     };
 
     for (const url of fileUrls) {

@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const tmpBaseDir = join(process.cwd(), 'public', 'uploads', 'tmp', uploadId);
+      const tmpBaseDir = join(process.cwd(), 'storage', 'uploads', 'tmp', uploadId);
       await mkdir(tmpBaseDir, { recursive: true });
 
       // Write this chunk as a part file
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       // If it's the last chunk, assemble
       if (chunkIndex === totalChunks - 1) {
         // Ensure final directory exists
-        const finalDir = join(process.cwd(), 'public', 'uploads', type);
+        const finalDir = join(process.cwd(), 'storage', 'uploads', type);
         await mkdir(finalDir, { recursive: true });
 
         const extension = fileName.includes('.') ? fileName.split('.').pop() : 'bin';
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
     const filename = `${type}-${timestamp}.${extension}`;
     
     // Create directory if it doesn't exist
-    const uploadDir = join(process.cwd(), 'public', 'uploads', type);
+    const uploadDir = join(process.cwd(), 'storage', 'uploads', type);
     await mkdir(uploadDir, { recursive: true });
     
     // Write file
