@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Completely disable middleware due to Edge Runtime crypto issues
+// Add no-store for admin pages to force clients to fetch latest HTML/JS
 export function middleware(request: NextRequest) {
-  console.log('Middleware disabled - allowing all requests');
-  return NextResponse.next();
+  const response = NextResponse.next();
+  if (request.nextUrl.pathname.startsWith('/admin')) {
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+  }
+  return response;
 }
 
 export const config = {
