@@ -102,18 +102,15 @@ export default function Home() {
             <div className="flex items-center gap-8">
               <Link href="/" className="flex items-center gap-3 group">
                 <div className="relative">
-                  <h1 className={`text-3xl mb-2 font-black bg-clip-text text-transparent tracking-tight group-hover:scale-105 transition-transform ${
-                    isDarkMode 
-                      ? 'bg-gradient-to-r from-zinc-50 via-gray-300 to-zinc-400' 
-                      : 'bg-gradient-to-r from-rose-600 via-emerald-800 to-blue-700'
-                  }`}>
-                    BNJHAB
-                  </h1>
-                  <div className={`absolute -inset-1 rounded-lg blur transition-opacity ${
-                    isDarkMode 
-                      ? 'bg-gradient-to-r from-gray-700 to-gray-500 opacity-20 group-hover:opacity-40' 
-                      : 'bg-gradient-to-r from-blue-600 to-cyan-500 opacity-20 group-hover:opacity-40'
-                  }`} />
+                  <img 
+                    src="/uploads/Landing/snapedit_1759885040844.png" 
+                    alt="Logo" 
+                    className={`w-45 h-45 transition-all duration-500 ${
+                      isDarkMode 
+                        ? 'filter-none' 
+                        : 'filter invert brightness-75 contrast-125'
+                    }`} 
+                  />
                 </div>
                 
               </Link>
