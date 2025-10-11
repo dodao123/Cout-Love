@@ -139,7 +139,7 @@ const NotePageSingle = forwardRef<HTMLDivElement, { note: typeof defaultNotes[0]
                         ? 'text-gray-300 group-hover:text-gray-100' 
                         : 'text-gray-700 group-hover:text-pink-600'
                     }`}
-                    style={{ fontFamily: "'Dancing Script', cursive" }}
+                    style={{ fontFamily: "'Bohemian Typewriter', monospace" }}
                   >
                     {line}
                   </span>
@@ -426,6 +426,14 @@ export default function NotePage() {
       {/* Fonts & Animations */}
       <style jsx global>{`
         @import url("https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Playfair+Display:wght@700&display=swap");
+        
+        @font-face {
+          font-family: 'Bohemian Typewriter';
+          src: url('/uploads/bohemian-typewriter-cdnfonts/Bohemian Typewriter.ttf') format('truetype');
+          font-weight: normal;
+          font-style: normal;
+          font-display: swap;
+        }
         
         @keyframes float-hearts {
           0% {

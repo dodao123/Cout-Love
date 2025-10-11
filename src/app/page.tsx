@@ -101,7 +101,7 @@ export default function Home() {
             {/* Logo with Gradient */}
             <div className="flex items-center gap-8">
               <Link href="/" className="flex items-center gap-3 group">
-                <div className="relative">
+                <div className="relative mr-3">
                   <img 
                     src="/uploads/Landing/snapedit_1759885040844.png" 
                     alt="Logo" 
