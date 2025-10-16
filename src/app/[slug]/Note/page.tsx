@@ -139,7 +139,8 @@ const NotePageSingle = forwardRef<HTMLDivElement, { note: typeof defaultNotes[0]
                         ? 'text-gray-300 group-hover:text-gray-100' 
                         : 'text-gray-700 group-hover:text-pink-600'
                     }`}
-                    style={{ fontFamily: "'Bohemian Typewriter', monospace" }}
+                  style={{ fontFamily: 'sans-serif' }}
+
                   >
                     {line}
                   </span>
